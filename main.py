@@ -29,6 +29,12 @@ def main(argv=None):
     discriminator_dims = [3, 64, 64 * 2, 64 * 4, 64 * 8, 1]
 
     crop_image_size, resized_image_size = map(int, FLAGS.image_size.split(','))
+    trainable_z = False
+    trainable_image = False
+    if FLAGS.mode in ("z_iterator_visualize"):
+        trainable_z = True
+    if FLAGS.mode in ("image_iterator_visualize"):
+        trainable_image = True
     if FLAGS.model == 0:
         model = GAN(FLAGS.z_dim, crop_image_size, resized_image_size, FLAGS.batch_size, FLAGS.data_dir)
     elif FLAGS.model == 1:
@@ -38,7 +44,7 @@ def main(argv=None):
         raise ValueError("Unknown model identifier - FLAGS.model=%d" % FLAGS.model)
 
     model.create_network(generator_dims, discriminator_dims, FLAGS.optimizer, FLAGS.learning_rate,
-                         FLAGS.optimizer_param)
+                         FLAGS.optimizer_param, trainable_z=trainable_z, trainable_image=trainable_image)
 
     model.initialize_network(FLAGS.logs_dir)
 
@@ -46,6 +52,10 @@ def main(argv=None):
         model.train_model(int(1 + FLAGS.iterations))
     elif FLAGS.mode == "visualize":
         model.visualize_model()
+    elif FLAGS.mode == "image_iterator_visualize":
+        model.image_iterator_visualize_model()
+    elif FLAGS.mode == "z_iterator_visualize":
+        model.z_iterator_visualize_model()
 
 
 if __name__ == "__main__":

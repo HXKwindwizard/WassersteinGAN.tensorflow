@@ -15,6 +15,7 @@ if utils_folder not in sys.path:
 import utils as utils
 import Dataset_Reader.read_celebADataset as celebA
 from six.moves import xrange
+from tqdm import *
 
 
 class GAN(object):
@@ -46,7 +47,7 @@ class GAN(object):
             tf.float32)
         decoded_image_4d = tf.expand_dims(cropped_image, 0)
         resized_image = tf.image.resize_bilinear(decoded_image_4d, [self.resized_image_size, self.resized_image_size])
-        record.input_image = tf.squeeze(resized_image, squeeze_dims=[0])
+        record.input_image = tf.squeeze(resized_image, axis=[0])
         return record
 
     def _read_input_queue(self, filename_queue):
@@ -80,7 +81,7 @@ class GAN(object):
                 image_size *= 2
                 W = utils.weight_variable([5, 5, dims[index + 1], dims[index]], name="W_%d" % index)
                 b = utils.bias_variable([dims[index + 1]], name="b_%d" % index)
-                deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
                 h_conv_t = utils.conv2d_transpose_strided(h, W, b, output_shape=deconv_shape)
                 h_bn = utils.batch_norm(h_conv_t, dims[index + 1], train_phase, scope="gen_bn%d" % index)
                 h = activation(h_bn, name='h_%d' % index)
@@ -89,7 +90,7 @@ class GAN(object):
             image_size *= 2
             W_pred = utils.weight_variable([5, 5, dims[-1], dims[-2]], name="W_pred")
             b_pred = utils.bias_variable([dims[-1]], name="b_pred")
-            deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+            deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
             h_conv_t = utils.conv2d_transpose_strided(h, W_pred, b_pred, output_shape=deconv_shape)
             pred_image = tf.nn.tanh(h_conv_t, name='pred_image')
             utils.add_activation_summary(pred_image)
@@ -126,8 +127,8 @@ class GAN(object):
         return tf.nn.sigmoid(h_pred), h_pred, h
 
     def _cross_entropy_loss(self, logits, labels, name="x_entropy"):
-        xentropy = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits, labels))
-        tf.scalar_summary(name, xentropy)
+        xentropy = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels))
+        tf.summary.scalar(name, xentropy)
         return xentropy
 
     def _get_optimizer(self, optimizer_name, learning_rate, optimizer_param):
@@ -164,18 +165,42 @@ class GAN(object):
             gen_loss_features = 0
         self.gen_loss = gen_loss_disc + 0.1 * gen_loss_features
 
-        tf.scalar_summary("Discriminator_loss", self.discriminator_loss)
-        tf.scalar_summary("Generator_loss", self.gen_loss)
+        tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
+        tf.summary.scalar("Generator_loss", self.gen_loss)
 
     def create_network(self, generator_dims, discriminator_dims, optimizer="Adam", learning_rate=2e-4,
-                       optimizer_param=0.9, improved_gan_loss=True):
+                       optimizer_param=0.9, improved_gan_loss=True, trainable_z=False, trainable_image=False):
         print("Setting up model...")
         self._setup_placeholder()
-        tf.histogram_summary("z", self.z_vec)
-        self.gen_images = self._generator(self.z_vec, generator_dims, self.train_phase, scope_name="generator")
+        tf.summary.histogram("z", self.z_vec)
 
-        tf.image_summary("image_real", self.images, max_images=2)
-        tf.image_summary("image_generated", self.gen_images, max_images=2)
+        if trainable_z:
+            # make z iterator variable
+            self.z_iterator = tf.Variable(np.random.uniform(-1.0, 1.0, (self.batch_size, int(self.z_vec.get_shape()[1]))).astype(dtype=np.float32), name="z_iterator")
+            self.init_z_iterator = tf.group(self.z_iterator.assign(self.z_vec))
+            self.z_iterator_min_max = tf.minimum(tf.maximum(self.z_iterator, -1.0), 1.0)
+            self.z_vec_in = self.z_iterator_min_max
+        else:
+            self.z_vec_in = self.z_vec
+
+
+        # generator for training
+        self.gen_images = self._generator(self.z_vec_in, generator_dims, self.train_phase, scope_name="generator")
+
+        if trainable_image:
+            # make image iterator variable
+            self.image_iterator = tf.Variable(np.random.uniform(0.0, 1.0, (self.batch_size,64,64,3)).astype(dtype=np.float32), name="image_iterator") 
+            self.init_image_iterator = tf.group(self.image_iterator.assign(self.gen_images))
+            self.image_iterator_min_max = tf.minimum(tf.maximum(self.image_iterator, -1.0), 1.0)
+            self.gen_images_out = self.image_iterator_min_max
+        else:
+            self.gen_images_out = self.gen_images
+
+
+        # generator for z iterator
+
+        tf.summary.image("image_real", self.images)
+        tf.summary.image("image_generated", self.gen_images_out)
 
         def leaky_relu(x, name="leaky_relu"):
             return utils.leaky_relu(x, alpha=0.2, name=name)
@@ -186,7 +211,7 @@ class GAN(object):
                                                                                  scope_name="discriminator",
                                                                                  scope_reuse=False)
 
-        discriminator_fake_prob, logits_fake, feature_fake = self._discriminator(self.gen_images, discriminator_dims,
+        discriminator_fake_prob, logits_fake, feature_fake = self._discriminator(self.gen_images_out, discriminator_dims,
                                                                                  self.train_phase,
                                                                                  activation=leaky_relu,
                                                                                  scope_name="discriminator",
@@ -204,25 +229,35 @@ class GAN(object):
             # print (v.op.name)
             utils.add_to_regularization_and_summary(var=v)
 
+        # get variable lists for everything
         self.generator_variables = [v for v in train_variables if v.name.startswith("generator")]
-        # print(map(lambda x: x.op.name, generator_variables))
         self.discriminator_variables = [v for v in train_variables if v.name.startswith("discriminator")]
-        # print(map(lambda x: x.op.name, discriminator_variables))
+        self.image_iterator_variables = [v for v in train_variables if v.name.startswith("image_iterator")]
+        self.z_iterator_variables = [v for v in train_variables if v.name.startswith("z_iterator")]
 
+        # set optimizer
         optim = self._get_optimizer(optimizer, learning_rate, optimizer_param)
 
-        self.generator_train_op = self._train(self.gen_loss, self.generator_variables, optim)
-        self.discriminator_train_op = self._train(self.discriminator_loss, self.discriminator_variables, optim)
+        # make train ops
+        if not trainable_image and not trainable_z:
+          self.generator_train_op = self._train(self.gen_loss, self.generator_variables, optim)
+          self.discriminator_train_op = self._train(self.discriminator_loss, self.discriminator_variables, optim)
+        if trainable_image:
+          self.image_iterator_train_op = self._train(self.gen_loss, self.image_iterator_variables, optim)
+        if trainable_z:
+          self.z_iterator_train_op = self._train(self.gen_loss, self.z_iterator_variables, optim)
 
     def initialize_network(self, logs_dir):
         print("Initializing network...")
         self.logs_dir = logs_dir
         self.sess = tf.Session()
-        self.summary_op = tf.merge_all_summaries()
-        self.saver = tf.train.Saver()
-        self.summary_writer = tf.train.SummaryWriter(self.logs_dir, self.sess.graph)
+        self.summary_op = tf.summary.merge_all()
+        variables = tf.global_variables()
+        restore_variables = [v for v in variables if v.name.startswith("discriminator") or v.name.startswith("generator")]
+        self.saver = tf.train.Saver(restore_variables)
+        self.summary_writer = tf.summary.FileWriter(self.logs_dir, self.sess.graph)
 
-        self.sess.run(tf.initialize_all_variables())
+        self.sess.run(tf.global_variables_initializer())
         ckpt = tf.train.get_checkpoint_state(self.logs_dir)
         if ckpt and ckpt.model_checkpoint_path:
             self.saver.restore(self.sess, ckpt.model_checkpoint_path)
@@ -262,10 +297,65 @@ class GAN(object):
         batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
         feed_dict = {self.z_vec: batch_z, self.train_phase: False}
 
-        images = self.sess.run(self.gen_images, feed_dict=feed_dict)
+        images = self.sess.run(self.gen_images_out, feed_dict=feed_dict)
         images = utils.unprocess_image(images, 127.5, 127.5).astype(np.uint8)
         shape = [4, self.batch_size // 4]
         utils.save_imshow_grid(images, self.logs_dir, "generated.png", shape=shape)
+
+    def image_iterator_visualize_model(self, nr_iterations=1000):
+        print("Sampling images from model...")
+        batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
+        feed_dict = {self.z_vec: batch_z, self.train_phase: False}
+        self.sess.run(self.init_image_iterator, feed_dict=feed_dict)
+ 
+        images = self.sess.run(self.gen_images_out, feed_dict={self.train_phase: False})
+        images = utils.unprocess_image(images, 127.5, 127.5).astype(np.uint8)
+        shape = [4, self.batch_size // 4]
+        utils.save_imshow_grid(images, self.logs_dir, "generated_image_iterator.png", shape=shape)
+
+        for i in tqdm(xrange(nr_iterations)):
+            feed_dict = {self.train_phase: False}
+            _, iterator_loss = self.sess.run([self.image_iterator_train_op, self.gen_loss], feed_dict=feed_dict)
+            if i == 0:
+              print("begining loss is " + str(iterator_loss))
+        print("final loss is " + str(iterator_loss))
+
+        images_iter = self.sess.run(self.gen_images_out, feed_dict=feed_dict)
+
+        images_iter = utils.unprocess_image(images_iter, 127.5, 127.5).astype(np.uint8)
+        shape = [4, self.batch_size // 4]
+        utils.save_imshow_grid(images_iter, self.logs_dir, "generated_image_iterator_after.png", shape=shape)
+        utils.save_imshow_grid(np.abs(images_iter.astype(np.float) - images.astype(np.float)).astype(np.uint8), self.logs_dir, "generated_image_iterator_dif.png", shape=shape)
+
+    def z_iterator_visualize_model(self, nr_iterations=1000):
+        print("Sampling images from model...")
+        batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
+        feed_dict = {self.z_vec: batch_z, self.train_phase: False}
+        self.sess.run(self.init_z_iterator, feed_dict=feed_dict)
+ 
+        images = self.sess.run(self.gen_images_out, feed_dict={self.train_phase: False})
+        #images = self.sess.run(self.gen_images, feed_dict=feed_dict)
+        images = utils.unprocess_image(images, 127.5, 127.5).astype(np.uint8)
+        shape = [4, self.batch_size // 4]
+        utils.save_imshow_grid(images, self.logs_dir, "generated_z_iterator.png", shape=shape)
+
+        
+        for i in tqdm(xrange(nr_iterations)):
+            feed_dict = {self.train_phase: False}
+            _, iterator_loss = self.sess.run([self.z_iterator_train_op, self.gen_loss], feed_dict=feed_dict)
+            if i == 0:
+              print("begining loss is " + str(iterator_loss))
+        print("final loss is " + str(iterator_loss))
+
+        images_iter = self.sess.run(self.gen_images_out, feed_dict=feed_dict)
+
+        images_iter = utils.unprocess_image(images_iter, 127.5, 127.5).astype(np.uint8)
+        print("diff is " + str(np.sum(images_iter - images)))
+        shape = [4, self.batch_size // 4]
+        utils.save_imshow_grid(images_iter, self.logs_dir, "generated_z_iterator_after.png", shape=shape)
+        utils.save_imshow_grid(np.abs(images_iter.astype(np.float) - images.astype(np.float)).astype(np.uint8), self.logs_dir, "generated_z_iterator_dif.png", shape=shape)
+
+
 
 
 class WasserstienGAN(GAN):
@@ -275,10 +365,12 @@ class WasserstienGAN(GAN):
         self.clip_values = clip_values
         GAN.__init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir)
 
-    def _generator(self, z, dims, train_phase, activation=tf.nn.relu, scope_name="generator"):
+    def _generator(self, z, dims, train_phase, activation=tf.nn.relu, scope_name="generator", scope_reuse=False):
         N = len(dims)
         image_size = self.resized_image_size // (2 ** (N - 1))
         with tf.variable_scope(scope_name) as scope:
+            if scope_reuse:
+                scope.reuse_variables()
             W_z = utils.weight_variable([self.z_dim, dims[0] * image_size * image_size], name="W_z")
             h_z = tf.matmul(z, W_z)
             h_z = tf.reshape(h_z, [-1, image_size, image_size, dims[0]])
@@ -290,7 +382,7 @@ class WasserstienGAN(GAN):
                 image_size *= 2
                 W = utils.weight_variable([4, 4, dims[index + 1], dims[index]], name="W_%d" % index)
                 b = tf.zeros([dims[index + 1]])
-                deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
                 h_conv_t = utils.conv2d_transpose_strided(h, W, b, output_shape=deconv_shape)
                 h_bn = utils.batch_norm(h_conv_t, dims[index + 1], train_phase, scope="gen_bn%d" % index)
                 h = activation(h_bn, name='h_%d' % index)
@@ -299,7 +391,7 @@ class WasserstienGAN(GAN):
             image_size *= 2
             W_pred = utils.weight_variable([4, 4, dims[-1], dims[-2]], name="W_pred")
             b = tf.zeros([dims[-1]])
-            deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+            deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
             h_conv_t = utils.conv2d_transpose_strided(h, W_pred, b, output_shape=deconv_shape)
             pred_image = tf.nn.tanh(h_conv_t, name='pred_image')
             utils.add_activation_summary(pred_image)
@@ -333,10 +425,10 @@ class WasserstienGAN(GAN):
 
     def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
         self.discriminator_loss = tf.reduce_mean(logits_real - logits_fake)
-        self.gen_loss = tf.reduce_mean(logits_fake)
+        self.gen_loss = -tf.reduce_mean(logits_fake)
 
-        tf.scalar_summary("Discriminator_loss", self.discriminator_loss)
-        tf.scalar_summary("Generator_loss", self.gen_loss)
+        tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
+        tf.summary.scalar("Generator_loss", self.gen_loss)
 
     def train_model(self, max_iterations):
         try:
