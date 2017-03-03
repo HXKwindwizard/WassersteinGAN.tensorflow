@@ -1,4 +1,4 @@
-# Go Home Discriminator, Your Drunk /  Fine Tuning with Discriminator Networks
+# Go Home Discriminator, You're Drunk /  Fine Tuning with Discriminator Networks
 
 In this repository we look at fine tuning generated images from GANs using the discriminator network. The idea is to tune the generated image such that the discriminator is more likely to predict it as a real image. We go about this in two ways. The first method is to generate an image with the generator network and then fine tune the pixels with the discriminator loss. The second method is to fine tune the input vector, Z, to the generator. As suggested by the title, the discriminator can be very easily fooled (in some cases). When fine tuning the pixels, the discriminator can be fooled with extremely small changes. Surprisingly, fine tuning the Z vector can actually produce more realistic images. This result is difficult to quantify so we have included pictures to support this claim. When training on the Celeb Dataset, Images with patchy hair or glasses tend to either remove the patches or fill in the missing spaces.
 
@@ -11,7 +11,7 @@ The idea of tuning images steams from work in Style Transfer and Fooling Neural 
 ![](images/image_iterator_2000.png)
 ![](images/image_iterator_plot.png)
 
-As seen in the photos and error plot. It is extremely easy to fool the discriminator with very slight changes in pixels. This is consistent with the results seen in Fooling Neural Network texts. I was hopeful that this would not be the case. Training GANs is dramatically different then training classification networks and it seems reasonable to hope that the discriminator would be more resistant to adversarial examples. Alas this does not appear to be the case.
+As seen in the photos and error plot. It is extremely easy to fool the discriminator with very slight changes in pixels. This is consistent with the results seen in Fooling Neural Network texts. I was hopeful that this would not be the case. Training GANs is dramatically different then training classification networks and it seems reasonable to hope that the discriminator would be more resistant to adversarial examples. Alas, this does not appear to be the case.
 
 ## Fine Tuning Z vector
 
@@ -23,12 +23,15 @@ Fine tuning the Z vector produces some interesting results. It appears to degrad
 More images!
 
 Before
+
 ![](images/generated_z_iterator.png)
 
 After
+
 ![](images/generated_z_iterator_after.png)
 
 Difference
+
 ![](images/generated_z_iterator_dif.png)
 
 ## Conclusion
