@@ -8,14 +8,14 @@ The idea of tuning images steams from work in Style Transfer and Fooling Neural 
 
 ## Fine Tuning Pixels
 
-![](logs/images/image_iterator_2000.png)
-![](logs/images/image_iterator_plot.png)
+![](images/image_iterator_2000.png)
+![](images/image_iterator_plot.png)
 
 As seen in the photos and error plot. It is extremely easy to fool the discriminator with very slight changes in pixels. This is consistent with the results seen in Fooling Neural Network texts. I was hopeful that this would not be the case. Training GANs is dramatically different then training classification networks and it seems reasonable to hope that the discriminator would be more resistant to adversarial examples. Alas this does not appear to be the case.
 
 ## Fine Tuning Z vector
 
-![](logs/images/z_iterator_500.png)
+![](images/z_iterator_500.png)
 ![](logs/images/z_iterator_plot.png)
 
 Fine tuning the Z vector produces some interesting results. It appears to degrade images in a few cases however in those with very little structure there is a dramatic improvement. Images with almost no clear face began to take on eyes and textured skin. It required playing with the learning rate and number of iterations to get these results. Too few steps and there is almost no change in the image. Too many steps and the resultant image is far from the original.
