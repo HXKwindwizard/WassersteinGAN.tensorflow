@@ -1,0 +1,177 @@
+--------------------------------------------------------------------------------
+Processing file 'GAN_models.py'
+ outputting to 'GAN_models.py'
+--------------------------------------------------------------------------------
+
+'GAN_models.py' Line 129
+--------------------------------------------------------------------------------
+
+Added keyword 'logits' to reordered function 'tf.nn.sigmoid_cross_entropy_with_logits'
+Added keyword 'labels' to reordered function 'tf.nn.sigmoid_cross_entropy_with_logits'
+
+    Old:         xentropy = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits, labels))
+                                                                                                    
+    New:         xentropy = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels))
+                                                                                   ~~~~~~~        ~~~~~~~         
+
+'GAN_models.py' Line 130
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         tf.scalar_summary(name, xentropy)
+                 ~~~~~~~~~~~~~~~~~                 
+    New:         tf.summary.scalar(name, xentropy)
+                 ~~~~~~~~~~~~~~~~~                 
+
+'GAN_models.py' Line 293
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.pack' to 'tf.stack'
+
+    Old:                 deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                                        ~~~~~~~                                                            
+    New:                 deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                                        ~~~~~~~~                                                            
+
+'GAN_models.py' Line 167
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         tf.scalar_summary("Discriminator_loss", self.discriminator_loss)
+                 ~~~~~~~~~~~~~~~~~                                                
+    New:         tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
+                 ~~~~~~~~~~~~~~~~~                                                
+
+'GAN_models.py' Line 168
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         tf.scalar_summary("Generator_loss", self.gen_loss)
+                 ~~~~~~~~~~~~~~~~~                                  
+    New:         tf.summary.scalar("Generator_loss", self.gen_loss)
+                 ~~~~~~~~~~~~~~~~~                                  
+
+'GAN_models.py' Line 177
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.image_summary' to 'tf.summary.image'
+
+    Old:         tf.image_summary("image_real", self.images, max_images=2)
+                 ~~~~~~~~~~~~~~~~                                          
+    New:         tf.summary.image("image_real", self.images, max_images=2)
+                 ~~~~~~~~~~~~~~~~                                          
+
+'GAN_models.py' Line 339
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         tf.scalar_summary("Generator_loss", self.gen_loss)
+                 ~~~~~~~~~~~~~~~~~                                  
+    New:         tf.summary.scalar("Generator_loss", self.gen_loss)
+                 ~~~~~~~~~~~~~~~~~                                  
+
+'GAN_models.py' Line 225
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.initialize_all_variables' to 'tf.global_variables_initializer'
+
+    Old:         self.sess.run(tf.initialize_all_variables())
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~    
+    New:         self.sess.run(tf.global_variables_initializer())
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~    
+
+'GAN_models.py' Line 338
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.scalar_summary' to 'tf.summary.scalar'
+
+    Old:         tf.scalar_summary("Discriminator_loss", self.discriminator_loss)
+                 ~~~~~~~~~~~~~~~~~                                                
+    New:         tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
+                 ~~~~~~~~~~~~~~~~~                                                
+
+'GAN_models.py' Line 174
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.histogram_summary' to 'tf.summary.histogram'
+
+    Old:         tf.histogram_summary("z", self.z_vec)
+                 ~~~~~~~~~~~~~~~~~~~~                  
+    New:         tf.summary.histogram("z", self.z_vec)
+                 ~~~~~~~~~~~~~~~~~~~~                  
+
+'GAN_models.py' Line 49
+--------------------------------------------------------------------------------
+
+Renamed keyword argument from 'squeeze_dims' to 'axis'
+
+    Old:         record.input_image = tf.squeeze(resized_image, squeeze_dims=[0])
+                                                                ~~~~~~~~~~~~~     
+    New:         record.input_image = tf.squeeze(resized_image, axis=[0])
+                                                                ~~~~~     
+
+'GAN_models.py' Line 178
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.image_summary' to 'tf.summary.image'
+
+    Old:         tf.image_summary("image_generated", self.gen_images, max_images=2)
+                 ~~~~~~~~~~~~~~~~                                                   
+    New:         tf.summary.image("image_generated", self.gen_images, max_images=2)
+                 ~~~~~~~~~~~~~~~~                                                   
+
+'GAN_models.py' Line 83
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.pack' to 'tf.stack'
+
+    Old:                 deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                                        ~~~~~~~                                                            
+    New:                 deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[index + 1]])
+                                        ~~~~~~~~                                                            
+
+'GAN_models.py' Line 302
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.pack' to 'tf.stack'
+
+    Old:             deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+                                    ~~~~~~~                                                     
+    New:             deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+                                    ~~~~~~~~                                                     
+
+'GAN_models.py' Line 92
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.pack' to 'tf.stack'
+
+    Old:             deconv_shape = tf.pack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+                                    ~~~~~~~                                                     
+    New:             deconv_shape = tf.stack([tf.shape(h)[0], image_size, image_size, dims[-1]])
+                                    ~~~~~~~~                                                     
+
+'GAN_models.py' Line 221
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.merge_all_summaries' to 'tf.summary.merge_all'
+
+    Old:         self.summary_op = tf.merge_all_summaries()
+                                   ~~~~~~~~~~~~~~~~~~~~~~   
+    New:         self.summary_op = tf.summary.merge_all()
+                                   ~~~~~~~~~~~~~~~~~~~~   
+
+'GAN_models.py' Line 223
+--------------------------------------------------------------------------------
+
+Renamed function 'tf.train.SummaryWriter' to 'tf.summary.FileWriter'
+
+    Old:         self.summary_writer = tf.train.SummaryWriter(self.logs_dir, self.sess.graph)
+                                       ~~~~~~~~~~~~~~~~~~~~~~                                 
+    New:         self.summary_writer = tf.summary.FileWriter(self.logs_dir, self.sess.graph)
+                                       ~~~~~~~~~~~~~~~~~~~~~                                 
+
+

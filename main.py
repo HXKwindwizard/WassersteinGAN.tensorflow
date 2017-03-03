@@ -21,7 +21,7 @@ tf.flags.DEFINE_integer("model", "0", "Model to train. 0 - GAN, 1 - WassersteinG
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer to use for training")
 tf.flags.DEFINE_integer("gen_dimension", "16", "dimension of first layer in generator")
 tf.flags.DEFINE_string("mode", "train", "train / visualize model")
-tf.flags.DEFINE_integer("nr_iter_vis", 2500, "number of iterations during visualization")
+tf.flags.DEFINE_integer("nr_iter_vis", 1000, "number of iterations during visualization")
 tf.flags.DEFINE_integer("nr_batches_tsne", 100, "number of batches to run for tsne visualization")
 tf.flags.DEFINE_bool("plot_iter_error", True, "plot the iterations error during visualization")
 

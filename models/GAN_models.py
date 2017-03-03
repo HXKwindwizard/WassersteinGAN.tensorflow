@@ -184,8 +184,7 @@ class GAN(object):
             # make z iterator variable
             self.z_iterator = tf.Variable(np.random.uniform(-1.0, 1.0, (self.batch_size, int(self.z_vec.get_shape()[1]))).astype(dtype=np.float32), name="z_iterator")
             self.init_z_iterator = tf.group(self.z_iterator.assign(self.z_vec))
-            self.z_iterator_min_max = ((self.z_iterator + 1.0) - 2.0*tf.floor_div(self.z_iterator, 2.0)) - 1.0
-            #self.z_iterator_min_max = tf.minimum(tf.maximum(self.z_iterator, -1.0), 1.0)
+            self.z_iterator_min_max = tf.maximum(tf.minimum(tf.maximum(self.z_iterator, -1.0), 1.0), -1.0)
             self.z_vec_in = self.z_iterator_min_max
         else:
             self.z_vec_in = self.z_vec
@@ -385,7 +384,7 @@ class GAN(object):
 
     def z_iterator_tsne_model(self, nr_iterations=1000, nr_batches_tsne=100):
         print("begining to generate tsne data...")
-        record_freq = 100
+        record_freq = 500
         iterator_loss_batch = []
         z_batch = []
         for i in tqdm(xrange(nr_batches_tsne)):
@@ -395,17 +394,16 @@ class GAN(object):
      
             for i in tqdm(xrange(nr_iterations)):
                 feed_dict = {self.train_phase: False}
-                _, iterator_loss_full, z_iterator = self.sess.run([self.z_iterator_train_op, self.gen_loss_full, self.z_iterator], feed_dict=feed_dict)
+                _, iterator_loss_full, z_iterator = self.sess.run([self.z_iterator_train_op, self.gen_loss_full, self.z_iterator_min_max], feed_dict=feed_dict)
                 if i % record_freq == 0:
-                    #iterator_loss_batch.append(np.zeros_like(iterator_loss_full) + i)
-                    iterator_loss_batch.append(-iterator_loss_full)
+                    iterator_loss_batch.append(np.zeros_like(iterator_loss_full) + i)
+                    #iterator_loss_batch.append(-iterator_loss_full)
                     z_batch.append(z_iterator)
 
         iterator_loss_batch = np.stack(iterator_loss_batch)
         iterator_loss_batch = iterator_loss_batch.reshape((self.batch_size * nr_batches_tsne * (1+ (nr_iterations/record_freq))))
         z_batch = np.stack(z_batch)
         z_batch = z_batch.reshape((self.batch_size * nr_batches_tsne * (1+ (nr_iterations/record_freq)), self.z_dim))
-
 
         print("preforming tsne embedding...")
         tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
@@ -414,8 +412,8 @@ class GAN(object):
         print(z_tsne.shape)
 
         fig = plt.figure(2)
-        plt.scatter(z_tsne[:,0], z_tsne[:,1], c=-iterator_loss_batch)
-        #plt.scatter(z_batch[:,0], z_batch[:,1], c=-iterator_loss_batch)
+        #plt.scatter(z_tsne[:,0], z_tsne[:,1], c=-iterator_loss_batch)
+        plt.scatter(z_batch[:,0], z_batch[:,1], c=-iterator_loss_batch)
         plt.xlabel("iteration step")
         plt.ylabel("error (lower better)")
         plt.title("Error vs z iteration step")
@@ -491,8 +489,8 @@ class WasserstienGAN(GAN):
 
     def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
         self.discriminator_loss = tf.reduce_mean(logits_real - logits_fake)
-        self.gen_loss = -tf.reduce_mean(logits_fake)
-        self.gen_loss_full = -tf.reduce_mean(logits_fake, axis=(1,2,3))
+        self.gen_loss = tf.reduce_mean(logits_fake)
+        self.gen_loss_full = tf.reduce_mean(logits_fake, axis=(1,2,3))
 
         tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
         tf.summary.scalar("Generator_loss", self.gen_loss)
