@@ -15,21 +15,21 @@ As seen in the photos and error plot. It is extremely easy to fool the discrimin
 
 ## Fine Tuning Z vector
 
-![](images/z_iterator_500.png)
-![](logs/images/z_iterator_plot.png)
+![](images/z_iterator_2000.png)
+![](images/z_iterator_plot.png)
 
 Fine tuning the Z vector produces some interesting results. It appears to degrade images in a few cases however in those with very little structure there is a dramatic improvement. Images with almost no clear face began to take on eyes and textured skin. It required playing with the learning rate and number of iterations to get these results. Too few steps and there is almost no change in the image. Too many steps and the resultant image is far from the original.
 
 More images!
 
 Before
-![](logs/images/generated_z_iterator.png)
+![](images/generated_z_iterator.png)
 
 After
-![](logs/images/generated_z_iterator_after.png)
+![](images/generated_z_iterator_after.png)
 
 Difference
-![](logs/images/generated_z_iterator_dif.png)
+![](images/generated_z_iterator_dif.png)
 
 ## Conclusion
 
