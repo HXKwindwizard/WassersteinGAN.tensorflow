@@ -1,5 +1,4 @@
-# WassersteinGAN.tensorflow
-Tensorflow implementation of Arjovsky et al.'s [Wasserstein GAN](https://arxiv.org/abs/1701.07875)
+# Go Home 
 
 1. [Prerequisites](#prerequisites)
 2. [Results](#results)

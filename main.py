@@ -21,6 +21,9 @@ tf.flags.DEFINE_integer("model", "0", "Model to train. 0 - GAN, 1 - WassersteinG
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer to use for training")
 tf.flags.DEFINE_integer("gen_dimension", "16", "dimension of first layer in generator")
 tf.flags.DEFINE_string("mode", "train", "train / visualize model")
+tf.flags.DEFINE_integer("nr_iter_vis", 2500, "number of iterations during visualization")
+tf.flags.DEFINE_integer("nr_batches_tsne", 100, "number of batches to run for tsne visualization")
+tf.flags.DEFINE_bool("plot_iter_error", True, "plot the iterations error during visualization")
 
 
 def main(argv=None):
@@ -31,7 +34,7 @@ def main(argv=None):
     crop_image_size, resized_image_size = map(int, FLAGS.image_size.split(','))
     trainable_z = False
     trainable_image = False
-    if FLAGS.mode in ("z_iterator_visualize"):
+    if FLAGS.mode in ("z_iterator_visualize", "z_iterator_tsne"):
         trainable_z = True
     if FLAGS.mode in ("image_iterator_visualize"):
         trainable_image = True
@@ -53,9 +56,11 @@ def main(argv=None):
     elif FLAGS.mode == "visualize":
         model.visualize_model()
     elif FLAGS.mode == "image_iterator_visualize":
-        model.image_iterator_visualize_model()
+        model.image_iterator_visualize_model(nr_iterations=FLAGS.nr_iter_vis, plot_iteration_error=FLAGS.plot_iter_error)
     elif FLAGS.mode == "z_iterator_visualize":
-        model.z_iterator_visualize_model()
+        model.z_iterator_visualize_model(nr_iterations=FLAGS.nr_iter_vis, plot_iteration_error=FLAGS.plot_iter_error)
+    elif FLAGS.mode == "z_iterator_tsne":
+        model.z_iterator_tsne_model(nr_iterations=FLAGS.nr_iter_vis, nr_batches_tsne=FLAGS.nr_batches_tsne)
 
 
 if __name__ == "__main__":

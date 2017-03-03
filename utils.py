@@ -178,7 +178,7 @@ def save_imshow_grid(images, logs_dir, filename, shape):
     grid = ImageGrid(fig, 111, nrows_ncols=shape, axes_pad=0.05)
 
     size = shape[0] * shape[1]
-    for i in trange(size, desc="Saving images"):
+    for i in trange(size, desc="Saving images to " + logs_dir):
         grid[i].axis('off')
         grid[i].imshow(images[i])
 

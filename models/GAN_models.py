@@ -16,6 +16,8 @@ import utils as utils
 import Dataset_Reader.read_celebADataset as celebA
 from six.moves import xrange
 from tqdm import *
+import matplotlib.pyplot as plt
+from sklearn import manifold
 
 
 class GAN(object):
@@ -141,6 +143,10 @@ class GAN(object):
             raise ValueError("Unknown optimizer %s" % optimizer_name)
 
     def _train(self, loss_val, var_list, optimizer):
+        print("train variables are")
+        for v in var_list:
+            print (v.op.name)
+
         grads = optimizer.compute_gradients(loss_val, var_list=var_list)
         for grad, var in grads:
             utils.add_gradient_summary(grad, var)
@@ -178,7 +184,8 @@ class GAN(object):
             # make z iterator variable
             self.z_iterator = tf.Variable(np.random.uniform(-1.0, 1.0, (self.batch_size, int(self.z_vec.get_shape()[1]))).astype(dtype=np.float32), name="z_iterator")
             self.init_z_iterator = tf.group(self.z_iterator.assign(self.z_vec))
-            self.z_iterator_min_max = tf.minimum(tf.maximum(self.z_iterator, -1.0), 1.0)
+            self.z_iterator_min_max = ((self.z_iterator + 1.0) - 2.0*tf.floor_div(self.z_iterator, 2.0)) - 1.0
+            #self.z_iterator_min_max = tf.minimum(tf.maximum(self.z_iterator, -1.0), 1.0)
             self.z_vec_in = self.z_iterator_min_max
         else:
             self.z_vec_in = self.z_vec
@@ -226,7 +233,6 @@ class GAN(object):
         train_variables = tf.trainable_variables()
 
         for v in train_variables:
-            # print (v.op.name)
             utils.add_to_regularization_and_summary(var=v)
 
         # get variable lists for everything
@@ -237,6 +243,7 @@ class GAN(object):
 
         # set optimizer
         optim = self._get_optimizer(optimizer, learning_rate, optimizer_param)
+        optim_z = self._get_optimizer(optimizer, learning_rate*10.0, optimizer_param)
 
         # make train ops
         if not trainable_image and not trainable_z:
@@ -245,7 +252,7 @@ class GAN(object):
         if trainable_image:
           self.image_iterator_train_op = self._train(self.gen_loss, self.image_iterator_variables, optim)
         if trainable_z:
-          self.z_iterator_train_op = self._train(self.gen_loss, self.z_iterator_variables, optim)
+          self.z_iterator_train_op = self._train(self.gen_loss, self.z_iterator_variables, optim_z)
 
     def initialize_network(self, logs_dir):
         print("Initializing network...")
@@ -302,7 +309,7 @@ class GAN(object):
         shape = [4, self.batch_size // 4]
         utils.save_imshow_grid(images, self.logs_dir, "generated.png", shape=shape)
 
-    def image_iterator_visualize_model(self, nr_iterations=1000):
+    def image_iterator_visualize_model(self, nr_iterations=1000, plot_iteration_error=True):
         print("Sampling images from model...")
         batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
         feed_dict = {self.z_vec: batch_z, self.train_phase: False}
@@ -313,9 +320,11 @@ class GAN(object):
         shape = [4, self.batch_size // 4]
         utils.save_imshow_grid(images, self.logs_dir, "generated_image_iterator.png", shape=shape)
 
+        iterator_loss_store = []
         for i in tqdm(xrange(nr_iterations)):
             feed_dict = {self.train_phase: False}
             _, iterator_loss = self.sess.run([self.image_iterator_train_op, self.gen_loss], feed_dict=feed_dict)
+            iterator_loss_store.append(iterator_loss)
             if i == 0:
               print("begining loss is " + str(iterator_loss))
         print("final loss is " + str(iterator_loss))
@@ -327,7 +336,16 @@ class GAN(object):
         utils.save_imshow_grid(images_iter, self.logs_dir, "generated_image_iterator_after.png", shape=shape)
         utils.save_imshow_grid(np.abs(images_iter.astype(np.float) - images.astype(np.float)).astype(np.uint8), self.logs_dir, "generated_image_iterator_dif.png", shape=shape)
 
-    def z_iterator_visualize_model(self, nr_iterations=1000):
+        if plot_iteration_error:
+          fig = plt.figure(2)
+          iterator_loss_store = np.array(iterator_loss_store)
+          plt.plot(iterator_loss_store)
+          plt.xlabel("iteration step")
+          plt.ylabel("error (lower better)")
+          plt.title("Error vs image iteration step")
+          plt.show(fig)
+
+    def z_iterator_visualize_model(self, nr_iterations=1000, plot_iteration_error=True):
         print("Sampling images from model...")
         batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
         feed_dict = {self.z_vec: batch_z, self.train_phase: False}
@@ -339,10 +357,11 @@ class GAN(object):
         shape = [4, self.batch_size // 4]
         utils.save_imshow_grid(images, self.logs_dir, "generated_z_iterator.png", shape=shape)
 
-        
+        iterator_loss_store = []
         for i in tqdm(xrange(nr_iterations)):
             feed_dict = {self.train_phase: False}
             _, iterator_loss = self.sess.run([self.z_iterator_train_op, self.gen_loss], feed_dict=feed_dict)
+            iterator_loss_store.append(iterator_loss)
             if i == 0:
               print("begining loss is " + str(iterator_loss))
         print("final loss is " + str(iterator_loss))
@@ -355,8 +374,55 @@ class GAN(object):
         utils.save_imshow_grid(images_iter, self.logs_dir, "generated_z_iterator_after.png", shape=shape)
         utils.save_imshow_grid(np.abs(images_iter.astype(np.float) - images.astype(np.float)).astype(np.uint8), self.logs_dir, "generated_z_iterator_dif.png", shape=shape)
 
+        if plot_iteration_error:
+          fig = plt.figure(2)
+          iterator_loss_store = np.array(iterator_loss_store)
+          plt.plot(iterator_loss_store)
+          plt.xlabel("iteration step")
+          plt.ylabel("error (lower better)")
+          plt.title("Error vs z iteration step")
+          plt.show(fig)
+
+    def z_iterator_tsne_model(self, nr_iterations=1000, nr_batches_tsne=100):
+        print("begining to generate tsne data...")
+        record_freq = 100
+        iterator_loss_batch = []
+        z_batch = []
+        for i in tqdm(xrange(nr_batches_tsne)):
+            batch_z = np.random.uniform(-1.0, 1.0, size=[self.batch_size, self.z_dim]).astype(np.float32)
+            feed_dict = {self.z_vec: batch_z, self.train_phase: False}
+            self.sess.run(self.init_z_iterator, feed_dict=feed_dict)
+     
+            for i in tqdm(xrange(nr_iterations)):
+                feed_dict = {self.train_phase: False}
+                _, iterator_loss_full, z_iterator = self.sess.run([self.z_iterator_train_op, self.gen_loss_full, self.z_iterator], feed_dict=feed_dict)
+                if i % record_freq == 0:
+                    #iterator_loss_batch.append(np.zeros_like(iterator_loss_full) + i)
+                    iterator_loss_batch.append(-iterator_loss_full)
+                    z_batch.append(z_iterator)
+
+        iterator_loss_batch = np.stack(iterator_loss_batch)
+        iterator_loss_batch = iterator_loss_batch.reshape((self.batch_size * nr_batches_tsne * (1+ (nr_iterations/record_freq))))
+        z_batch = np.stack(z_batch)
+        z_batch = z_batch.reshape((self.batch_size * nr_batches_tsne * (1+ (nr_iterations/record_freq)), self.z_dim))
 
 
+        print("preforming tsne embedding...")
+        tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
+        #tsne = manifold.TSNE(n_components=2)
+        z_tsne = tsne.fit_transform(z_batch)
+        print(z_tsne.shape)
+
+        fig = plt.figure(2)
+        plt.scatter(z_tsne[:,0], z_tsne[:,1], c=-iterator_loss_batch)
+        #plt.scatter(z_batch[:,0], z_batch[:,1], c=-iterator_loss_batch)
+        plt.xlabel("iteration step")
+        plt.ylabel("error (lower better)")
+        plt.title("Error vs z iteration step")
+        plt.show(fig)
+
+
+    
 
 class WasserstienGAN(GAN):
     def __init__(self, z_dim, crop_image_size, resized_image_size, batch_size, data_dir, clip_values=(-0.01, 0.01),
@@ -426,6 +492,7 @@ class WasserstienGAN(GAN):
     def _gan_loss(self, logits_real, logits_fake, feature_real, feature_fake, use_features=False):
         self.discriminator_loss = tf.reduce_mean(logits_real - logits_fake)
         self.gen_loss = -tf.reduce_mean(logits_fake)
+        self.gen_loss_full = -tf.reduce_mean(logits_fake, axis=(1,2,3))
 
         tf.summary.scalar("Discriminator_loss", self.discriminator_loss)
         tf.summary.scalar("Generator_loss", self.gen_loss)
